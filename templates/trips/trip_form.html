@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · TripMate{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9 col-xl-8">
+    <div class="mb-4">
+      <div class="eyebrow">A few details</div>
+      <h1 class="h2 mt-2">{{ title }}</h1>
+      <p class="text-secondary">We’ll bring the destination essentials together for you.</p>
+    </div>
+    <div class="card p-4 p-lg-5">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-4">
+          {% for field in form %}
+            <div class="{% if field.name == 'notes' %}col-12{% else %}col-md-6{% endif %}">
+              <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-4 pt-2">
+          <button class="btn btn-primary px-4">Save trip</button>
+          <a class="btn btn-outline-secondary px-4" href="{% url 'trip_list' %}">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<datalist id="origin-options">
+  <option value="Manila"></option><option value="Cebu, Philippines"></option><option value="Singapore"></option>
+  <option value="Tokyo, Japan"></option><option value="Dubai, United Arab Emirates"></option>
+  <option value="London, United Kingdom"></option><option value="New York, United States"></option>
+</datalist>
+<script>
+  (() => {
+    const destination = document.getElementById("id_destination");
+    const targetCurrency = document.getElementById("id_target_currency");
+    const countryCode = document.getElementById("id_country_code");
+    if (!destination || !targetCurrency || !countryCode) return;
+
+    const syncDestinationDetails = (destinationChanged = false) => {
+      const selected = destination.options[destination.selectedIndex];
+      if (!selected || !selected.value) {
+        countryCode.value = "";
+        return;
+      }
+      countryCode.value = selected.dataset.country || "";
+      if (destinationChanged && selected.dataset.currency) targetCurrency.value = selected.dataset.currency;
+    };
+
+    destination.addEventListener("change", () => syncDestinationDetails(true));
+    syncDestinationDetails();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Create account · TripMate{% endblock %}
+{% block content %}
+<div class="auth-wrap auth-wrap-wide">
+  <div class="card auth-card p-4 p-sm-5">
+    <div class="eyebrow">Your next chapter</div>
+    <h1 class="h3 mt-2">Create your account</h1>
+    <p class="text-secondary">Save your plans and keep every trip in one place.</p>
+    <form method="post" class="mt-3" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+          {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-primary w-100 mt-2">Create account</button>
+    </form>
+    <p class="mt-4 mb-0 text-secondary">Already planning with us? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
+</div>
+{% endblock %}

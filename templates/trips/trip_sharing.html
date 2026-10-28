@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Share {{ trip.destination }} · TripMate{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <a class="text-decoration-none" href="{% url 'trip_detail' trip.pk %}">← {{ trip.destination }}</a>
+  <div class="mt-4 mb-4"><div class="eyebrow">Plan together</div><h1 class="h2 mt-2">Share this trip</h1><p class="text-secondary">Add an existing TripMate username and choose their access.</p></div>
+  <div class="card p-4 p-lg-5 mb-4"><form method="post" novalidate>{% csrf_token %}
+    {% for field in form %}<div class="mb-3"><label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.name == "role" %}<div class="form-text">Viewers can see the trip. Itinerary editors can also add, change, or remove itinerary activities.</div>{% endif %}{% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}</div>{% endfor %}
+    <button class="btn btn-primary">Share trip</button>
+  </form></div>
+  <div class="card p-4"><h2 class="h5">People with access</h2>
+    {% if members %}<ul class="list-group list-group-flush">{% for member in members %}<li class="list-group-item px-0 d-flex flex-wrap align-items-center gap-2"><div class="flex-grow-1"><strong>{{ member.user.username }}</strong><span class="text-secondary ms-2">{{ member.get_role_display }}</span></div><form method="post" action="{% url 'trip_unshare' trip.pk member.pk %}" onsubmit="return confirm('Remove this person’s access?')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Remove access</button></form></li>{% endfor %}</ul>{% else %}<p class="text-secondary mb-0">You haven’t shared this trip yet.</p>{% endif %}
+  </div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ trip.destination }} · TripMate{% endblock %}
+{% block content %}
+<a href="{% url 'trip_list' %}" class="text-decoration-none">← All trips</a>
+<div class="d-flex flex-wrap justify-content-between align-items-end mt-3 mb-4">
+  <div><div class="eyebrow">{{ trip.start_date|date:"M j" }} – {{ trip.end_date|date:"M j, Y" }}</div><h1 class="display-5 fw-bold mt-2">{{ trip.destination }}</h1><p class="text-secondary mb-0">Departing from {{ trip.origin }}{% if user.is_staff %} · Planned by {{ trip.owner.username }}{% endif %}</p></div>
+  <div class="d-flex gap-2 mt-3">{% if is_trip_owner %}<a class="btn btn-outline-secondary" href="{% url 'trip_sharing' trip.pk %}">Share</a><a class="btn btn-outline-secondary" href="{% url 'trip_edit' trip.pk %}">Edit trip</a><form method="post" action="{% url 'trip_delete' trip.pk %}" onsubmit="return confirm('Delete this trip?')">{% csrf_token %}<button class="btn btn-outline-danger">Delete</button></form>{% endif %}</div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6 col-lg-4"><div class="card p-4 h-100"><div class="eyebrow">Weather now</div>{% if weather %}<div class="stat mt-2">{{ weather.temperature }}°</div><div class="text-secondary">Feels like {{ weather.feels_like }}° · High {{ weather.high }}° / Low {{ weather.low }}°</div>{% else %}<p class="text-secondary mt-3 mb-0">Weather is temporarily unavailable for this place.</p>{% endif %}<small class="text-secondary mt-3">Open-Meteo · current conditions</small></div></div>
+  <div class="col-md-6 col-lg-4"><div class="card p-4 h-100"><div class="eyebrow">Route estimate</div>{% if route %}<div class="stat mt-2">{{ route.km }} <span class="fs-6 fw-normal">km</span></div><div class="text-secondary">About {{ route.hours }} hours by road</div>{% else %}<p class="text-secondary mt-3 mb-0">Route estimate is unavailable for these locations.</p>{% endif %}<small class="text-secondary mt-3">OpenStreetMap · OSRM driving route</small></div></div>
+  <div class="col-md-6 col-lg-4"><div class="card p-4 h-100"><div class="eyebrow">Budget conversion</div>{% if converted != None %}<div class="stat mt-2">{{ converted|floatformat:2 }}</div><div class="text-secondary">{{ trip.currency }} → {{ trip.target_currency }}</div>{% else %}<p class="text-secondary mt-3 mb-0">Exchange rate is unavailable. Your original budget is {{ trip.budget }} {{ trip.currency }}.</p>{% endif %}<small class="text-secondary mt-3">Frankfurter · indicative rate</small></div></div>
+  <div class="col-lg-7"><div class="card p-4 h-100"><div class="eyebrow">Local public holidays</div>{% if not trip.country_code %}<p class="text-secondary mt-3 mb-0">Holiday lookup is unavailable for this destination.</p>{% elif holidays == None %}<p class="text-secondary mt-3 mb-0">Holiday information is temporarily unavailable for {{ trip.country_code }}.</p>{% elif holidays %}<ul class="list-group list-group-flush mt-3">{% for holiday in holidays %}<li class="list-group-item px-0 d-flex justify-content-between"><span>{{ holiday.name }}</span><span class="text-secondary">{{ holiday.date|date:"M j" }}</span></li>{% endfor %}</ul>{% else %}<p class="text-secondary mt-3 mb-0">No public holidays found during these dates.</p>{% endif %}<small class="text-secondary mt-auto pt-3">Nager.Date · {{ trip.country_code|default:"country not set" }}</small></div></div>
+  <div class="col-lg-5"><div class="card p-4 h-100"><div class="eyebrow">Trip budget</div><div class="stat mt-2">{{ trip.budget|floatformat:2 }} <span class="fs-6 fw-normal">{{ trip.currency }}</span></div>{% if trip.notes %}<hr><div class="eyebrow">Notes</div><p class="mb-0 mt-2" style="white-space:pre-line">{{ trip.notes }}</p>{% else %}<p class="text-secondary mb-0 mt-2">No notes yet.</p>{% endif %}</div></div>
+</div>
+
+<section class="card p-4 p-lg-5 mb-4" aria-labelledby="budget-breakdown-heading">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div><div class="eyebrow">Keep spending in view</div><h2 id="budget-breakdown-heading" class="h3 mt-2">Budget breakdown</h2><p class="text-secondary mb-0">Track trip expenses against your {{ trip.budget|floatformat:2 }} {{ trip.currency }} budget.</p></div>
+    {% if is_trip_owner %}<a class="btn btn-primary" href="{% url 'expense_create' trip.pk %}">＋ Add expense</a>{% endif %}
+  </div>
+  <div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="budget-stat"><span class="small text-secondary">Trip budget</span><strong>{{ trip.budget|floatformat:2 }} {{ trip.currency }}</strong></div></div>
+    <div class="col-md-4"><div class="budget-stat"><span class="small text-secondary">Total spent</span><strong>{{ expense_total|floatformat:2 }} {{ trip.currency }}</strong></div></div>
+    <div class="col-md-4"><div class="budget-stat"><span class="small text-secondary">{% if budget_remaining < 0 %}Over budget{% else %}Budget remaining{% endif %}</span><strong class="{% if budget_remaining < 0 %}text-danger{% else %}text-success{% endif %}">{{ budget_remaining|floatformat:2|cut:"-" }} {{ trip.currency }}</strong></div></div>
+  </div>
+  <div class="progress mb-4" role="progressbar" aria-label="Trip budget spent" aria-valuenow="{{ budget_percent }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar {% if budget_remaining < 0 %}bg-danger{% endif %}" style="width:{{ budget_percent }}%"></div></div>
+  {% if expense_categories %}
+    <div class="row g-4 mb-4">
+      {% for category in expense_categories %}
+        <div class="col-md-6"><div class="d-flex justify-content-between small mb-1"><span>{{ category.label }}</span><strong>{{ category.total|floatformat:2 }} {{ trip.currency }}</strong></div><div class="progress category-progress"><div class="progress-bar" style="width:{{ category.percent }}%"></div></div></div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% if expenses %}
+    <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Expense</th><th>Category</th><th>Date</th><th class="text-end">Amount</th><th></th></tr></thead><tbody>
+      {% for expense in expenses %}
+        <tr><td><strong>{{ expense.title }}</strong>{% if expense.notes %}<div class="small text-secondary">{{ expense.notes }}</div>{% endif %}</td><td>{{ expense.get_category_display }}</td><td>{{ expense.date|date:"M j, Y" }}</td><td class="text-end text-nowrap">{{ expense.amount|floatformat:2 }} {{ trip.currency }}</td><td class="text-end text-nowrap">{% if is_trip_owner %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'expense_edit' trip.pk expense.pk %}">Edit</a> <form class="d-inline" method="post" action="{% url 'expense_delete' trip.pk expense.pk %}" onsubmit="return confirm('Delete this expense?')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Remove</button></form>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table></div>
+  {% else %}<div class="empty-note"><strong>No expenses recorded yet.</strong><br><span class="text-secondary">Add meals, transport, stays, and activities to see how they compare with your budget.</span></div>{% endif %}
+</section>
+
+<div class="row g-3">
+  <section class="col-lg-7" aria-labelledby="itinerary-heading">
+    <div class="card p-4 p-lg-5 h-100">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3"><div><div class="eyebrow">Make each day yours</div><h2 id="itinerary-heading" class="h3 mt-2">Itinerary</h2><p class="text-secondary mb-0">Your plans, organized by date and time.</p></div>{% if can_edit_itinerary %}<a class="btn btn-primary" href="{% url 'itinerary_item_create' trip.pk %}">＋ Add activity</a>{% endif %}</div>
+      {% if itinerary %}
+        {% regroup itinerary by date as itinerary_days %}
+        <div class="itinerary-list">
+          {% for day in itinerary_days %}
+            <div class="itinerary-day"><div class="eyebrow mb-2">{{ day.grouper|date:"l, M j" }}</div>
+              {% for item in day.list %}
+                <article class="activity-item"><div class="activity-time">{% if item.time %}{{ item.time|time:"g:i A" }}{% else %}Any time{% endif %}</div><div class="flex-grow-1"><h3 class="h6 mb-1">{{ item.title }}</h3>{% if item.location %}<div class="small text-secondary">{{ item.location }}</div>{% endif %}{% if item.notes %}<p class="small text-secondary mb-0 mt-2" style="white-space:pre-line">{{ item.notes }}</p>{% endif %}</div>{% if can_edit_itinerary %}<div class="d-flex gap-2"><a class="btn btn-sm btn-outline-secondary" href="{% url 'itinerary_item_edit' trip.pk item.pk %}">Edit</a><form method="post" action="{% url 'itinerary_item_delete' trip.pk item.pk %}" onsubmit="return confirm('Remove this activity?')">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">Remove</button></form></div>{% endif %}</article>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}<div class="empty-note"><strong>Your itinerary is ready to take shape.</strong><br><span class="text-secondary">Add an activity, meal, or reservation.</span></div>{% endif %}
+    </div>
+  </section>
+  <section class="col-lg-5" aria-labelledby="packing-heading">
+    <div class="card p-4 p-lg-5 h-100">
+      <div class="eyebrow">Get ready to go</div><h2 id="packing-heading" class="h3 mt-2">Packing checklist</h2>
+      <p class="text-secondary">{{ packed_count }} of {{ packing_count }} packed</p>
+      {% if packing_count %}<div class="progress mb-3" role="progressbar" aria-label="Packing progress" aria-valuenow="{{ packed_count }}" aria-valuemin="0" aria-valuemax="{{ packing_count }}"><div class="progress-bar" style="width:{% widthratio packed_count packing_count 100 %}%"></div></div>{% endif %}
+      {% if is_trip_owner %}<form method="post" action="{% url 'packing_item_create' trip.pk %}" class="d-flex gap-2 mb-3">{% csrf_token %}{{ packing_form.name }}<button class="btn btn-primary flex-shrink-0">Add</button></form>{% endif %}
+      {% if packing_items %}<ul class="packing-list list-unstyled mb-0">{% for item in packing_items %}<li class="packing-item">{% if is_trip_owner %}<form method="post" action="{% url 'packing_item_toggle' trip.pk item.pk %}">{% csrf_token %}<button class="packing-check {% if item.packed %}is-packed{% endif %}" aria-label="{% if item.packed %}Mark {{ item.name }} as not packed{% else %}Mark {{ item.name }} as packed{% endif %}">{% if item.packed %}✓{% endif %}</button></form>{% endif %}<span class="flex-grow-1 {% if item.packed %}packed-text{% endif %}">{{ item.name }}</span>{% if is_trip_owner %}<form method="post" action="{% url 'packing_item_delete' trip.pk item.pk %}">{% csrf_token %}<button class="btn btn-sm btn-link text-danger text-decoration-none">Remove</button></form>{% endif %}</li>{% endfor %}</ul>{% else %}<div class="empty-note"><strong>Nothing on the list yet.</strong><br><span class="text-secondary">Add essentials you want to remember.</span></div>{% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
